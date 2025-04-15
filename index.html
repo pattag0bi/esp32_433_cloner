@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ESP32 RF Cloner</title>
+    <style>
+      :root {
+        --primary-color: #c19a6b; /* Desert sand */
+        --secondary-color: #8b4513; /* Saddle brown */
+        --success-color: #d2b48c; /* Tan */
+        --danger-color: #8b0000; /* Dark red */
+        --background-color: #1a1a1a; /* Dark background */
+        --text-color: #e6d5b8; /* Light sand */
+        --border-color: #8b4513; /* Saddle brown */
+        --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        --hover-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        --transition-speed: 0.3s;
+        --glow-color: rgba(193, 154, 107, 0.3);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Orbitron", "Courier New", monospace;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        line-height: 1.5;
+        background-image: linear-gradient(135deg, #1a1a1a 0%, #2d1a1a 100%);
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        background-color: rgba(26, 26, 26, 0.9);
+        box-shadow: var(--card-shadow);
+        animation: float 8s ease-in-out infinite;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-5px);
+        }
+      }
+
+      @keyframes glow {
+        0%,
+        100% {
+          box-shadow: 0 0 5px var(--glow-color);
+        }
+        50% {
+          box-shadow: 0 0 10px var(--glow-color);
+        }
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        75% {
+          transform: translateX(5px);
+        }
+      }
+
+      @keyframes scale {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.02);
+        }
+      }
+
+      @keyframes borderGlow {
+        0%,
+        100% {
+          border-color: var(--border-color);
+        }
+        50% {
+          border-color: var(--primary-color);
+        }
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 30px;
+        animation: scale 6s ease-in-out infinite;
+      }
+
+      h1 {
+        font-size: 36px;
+        font-weight: 500;
+        margin-bottom: 10px;
+        color: var(--primary-color);
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        animation: glow 3s ease-in-out infinite;
+      }
+
+      .status-bar {
+        background-color: rgba(26, 26, 26, 0.8);
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        margin-bottom: 20px;
+        box-shadow: var(--card-shadow);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        animation: glow 3s ease-in-out infinite;
+      }
+
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--danger-color);
+        box-shadow: 0 0 8px var(--danger-color);
+        animation: pulse 1.5s infinite;
+      }
+
+      .status-dot.connected {
+        background-color: var(--success-color);
+        box-shadow: 0 0 8px var(--success-color);
+        animation: pulse 1.5s infinite, spin 8s linear infinite;
+      }
+
+      button {
+        padding: 10px 20px;
+        border: 1px solid var(--border-color);
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        background-color: transparent;
+        color: var(--text-color);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all var(--transition-speed);
+      }
+
+      button:hover:not(:disabled) {
+        background-color: var(--primary-color);
+        color: var(--background-color);
+        transform: translateY(-1px);
+        box-shadow: var(--hover-shadow);
+      }
+
+      button:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .btn-success {
+        border-color: var(--success-color);
+        color: var(--success-color);
+      }
+
+      .btn-danger {
+        border-color: var(--danger-color);
+        color: var(--danger-color);
+      }
+
+      .terminal-container,
+      .signals-container {
+        background-color: rgba(26, 26, 26, 0.8);
+        border: 1px solid var(--border-color);
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: var(--card-shadow);
+        animation: float 10s ease-in-out infinite;
+      }
+
+      .terminal-header,
+      .signals-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .terminal-title,
+      .signals-header h2 {
+        font-weight: 500;
+        font-size: 18px;
+        color: var(--primary-color);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        animation: glow 3s ease-in-out infinite;
+      }
+
+      #serialOutput {
+        font-family: "Courier New", monospace;
+        background-color: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--border-color);
+        padding: 15px;
+        min-height: 150px;
+        max-height: 300px;
+        overflow-y: auto;
+        font-size: 14px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .log-entry {
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: rgba(26, 26, 26, 0.5);
+        width: 100%;
+        box-sizing: border-box;
+        border-left: 4px solid var(--border-color);
+        display: flex;
+        gap: 10px;
+        transition: all var(--transition-speed);
+      }
+
+      .log-entry:hover {
+        transform: translateX(3px);
+      }
+
+      .log-timestamp {
+        color: var(--primary-color);
+        font-size: 12px;
+        white-space: nowrap;
+        min-width: 80px;
+      }
+
+      .log-message {
+        flex: 1;
+      }
+
+      .log-error {
+        color: var(--danger-color);
+        border-left-color: var(--danger-color);
+      }
+
+      .log-success {
+        color: var(--success-color);
+        border-left-color: var(--success-color);
+      }
+
+      .log-info {
+        color: var(--text-color);
+        border-left-color: var(--border-color);
+      }
+
+      .log-section {
+        margin-bottom: 15px;
+        border: 1px solid var(--border-color);
+        width: 100%;
+        box-sizing: border-box;
+        background-color: rgba(26, 26, 26, 0.5);
+        animation: float 10s ease-in-out infinite;
+      }
+
+      .log-section-title {
+        padding: 12px;
+        background-color: rgba(193, 154, 107, 0.2);
+        font-weight: 500;
+        width: 100%;
+        box-sizing: border-box;
+        color: var(--primary-color);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        animation: glow 3s ease-in-out infinite;
+      }
+
+      .signal-info-block {
+        margin: 0;
+        padding: 12px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+        line-height: 1.4;
+        background-color: rgba(0, 0, 0, 0.3);
+        color: var(--text-color);
+        transition: all var(--transition-speed);
+      }
+
+      .code-item {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: rgba(26, 26, 26, 0.5);
+        transition: all var(--transition-speed);
+      }
+
+      .code-item:hover {
+        transform: translateX(3px);
+      }
+
+      .signal-name {
+        font-weight: 500;
+        margin-bottom: 4px;
+        color: var(--primary-color);
+      }
+
+      .signal-details {
+        color: var(--text-color);
+        font-size: 13px;
+        opacity: 0.8;
+      }
+
+      .action-button {
+        padding: 6px 12px;
+        font-size: 12px;
+        background-color: transparent;
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all var(--transition-speed);
+      }
+
+      .action-button:hover {
+        transform: translateY(-1px);
+      }
+
+      .edit-input {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        background-color: rgba(0, 0, 0, 0.3);
+        color: var(--text-color);
+        font-size: 14px;
+        width: 200px;
+        transition: all var(--transition-speed);
+      }
+
+      .edit-input:focus {
+        box-shadow: 0 0 5px var(--glow-color);
+      }
+
+      /* Custom scrollbar */
+      #serialOutput::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #serialOutput::-webkit-scrollbar-track {
+        background: rgba(26, 26, 26, 0.5);
+      }
+
+      #serialOutput::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        animation: glow 3s ease-in-out infinite;
+      }
+
+      /* Marquee effect for status */
+      .status-marquee {
+        display: inline-block;
+        animation: marquee 15s linear infinite;
+      }
+
+      @keyframes marquee {
+        0% {
+          transform: translateX(100%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      /* Under construction gif */
+      .construction {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 88px;
+        height: 31px;
+        background-image: url("data:image/gif;base64,R0lGODlhWAAfAMQAAP///wAAAPDw8ODg4MDAsKCgoIBgYGBQUFBAMDAgICAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAABEALAAAAAAYAB8AAAVNYCSOZGmeaKqubOu+cCzPdG3feK7vfO//wKBwSCwaj8ikcslsOp/QqHRKrVqv2Kx2y+16v+CweEwum8/otHrNbrvf8Lh8Tq/b7/i8fs/v+/8=");
+        animation: spin 8s linear infinite;
+      }
+    </style>
+    <audio id="connectSound" preload="auto">
+      <source
+        src="https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"
+        type="audio/mp3"
+      />
+    </audio>
+    <audio id="clickSound" preload="auto">
+      <source
+        src="https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3"
+        type="audio/mp3"
+      />
+    </audio>
+    <audio id="captureSound" preload="auto">
+      <source
+        src="https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3"
+        type="audio/mp3"
+      />
+    </audio>
+    <audio id="errorSound" preload="auto">
+      <source
+        src="https://assets.mixkit.co/active_storage/sfx/2576/2576-preview.mp3"
+        type="audio/mp3"
+      />
+    </audio>
+    <audio id="transmitSound" preload="auto">
+      <source
+        src="https://assets.mixkit.co/active_storage/sfx/2577/2577-preview.mp3"
+        type="audio/mp3"
+      />
+    </audio>
+    <audio id="signalReceivedSound" preload="auto">
+      <source
+        src="https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3"
+        type="audio/mp3"
+      />
+    </audio>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>ESP32 RF Cloner</h1>
+      </header>
+
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="status">Disconnected</span>
+        </div>
+        <div class="controls">
+          <button id="connectButton">Connect</button>
+          <button id="refreshButton" disabled>Refresh</button>
+          <button id="saveAllButton" disabled>Save All</button>
+          <button id="loadSignalsButton">Load Saved</button>
+          <button id="clearSavedButton" class="btn-danger">Clear Saved</button>
+        </div>
+      </div>
+
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <span class="terminal-title">Serial Output</span>
+          <div class="terminal-controls">
+            <button class="clear-button" onclick="clearSerialOutput()">
+              Clear
+            </button>
+          </div>
+        </div>
+        <div id="serialOutput"></div>
+      </div>
+
+      <div class="signals-container">
+        <div class="signals-header">
+          <h2>Captured Signals</h2>
+          <span class="signals-count" id="capturedSignalsCount">0 signals</span>
+        </div>
+        <div id="capturedCodesList">
+          <p>No signals available. Connect and click Refresh to get started.</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let port = null;
+      let capturedSignals = new Map();
+      let loadedSignals = new Map();
+      let reader = null;
+      let writer = null;
+
+      const connectButton = document.getElementById("connectButton");
+      const refreshButton = document.getElementById("refreshButton");
+      const saveAllButton = document.getElementById("saveAllButton");
+      const loadSignalsButton = document.getElementById("loadSignalsButton");
+      const clearSavedButton = document.getElementById("clearSavedButton");
+      const statusDiv = document.getElementById("status");
+      const capturedCodesList = document.getElementById("capturedCodesList");
+      const serialOutput = document.getElementById("serialOutput");
+
+      let currentLineIndex = 0;
+      let bufferedLines = [];
+      const nextLineButton = document.getElementById("nextLineButton");
+
+      // Sound effects
+      const sounds = {
+        connect: document.getElementById("connectSound"),
+        click: document.getElementById("clickSound"),
+        capture: document.getElementById("captureSound"),
+        error: document.getElementById("errorSound"),
+        transmit: document.getElementById("transmitSound"),
+        signalReceived: document.getElementById("signalReceivedSound"),
+      };
+
+      // Set volume for all sounds
+      Object.values(sounds).forEach((sound) => {
+        sound.volume = 0.3; // Increased volume for better audibility
+        sound.load(); // Ensure sounds are loaded
+      });
+
+      // Play sound effect with error handling
+      function playSound(soundName) {
+        const sound = sounds[soundName];
+        if (sound) {
+          try {
+            sound.currentTime = 0;
+            const playPromise = sound.play();
+            if (playPromise !== undefined) {
+              playPromise.catch((error) => {
+                console.log("Sound play failed:", error);
+              });
+            }
+          } catch (error) {
+            console.log("Sound error:", error);
+          }
+        }
+      }
+
+      // Add sound to all buttons
+      document.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => playSound("click"));
+      });
+
+      // Ensure sounds are loaded before playing
+      window.addEventListener("load", () => {
+        Object.values(sounds).forEach((sound) => {
+          sound.load();
+        });
+      });
+
+      function addLogEntry(message, type = "info") {
+        const logEntry = document.createElement("div");
+        logEntry.className = `log-entry log-${type}`;
+
+        // Add timestamp
+        const timestamp = document.createElement("span");
+        timestamp.className = "log-timestamp";
+        const now = new Date();
+        timestamp.textContent = now.toLocaleTimeString();
+
+        // Add message
+        const messageSpan = document.createElement("span");
+        messageSpan.className = "log-message";
+        messageSpan.textContent = message;
+
+        logEntry.appendChild(timestamp);
+        logEntry.appendChild(messageSpan);
+        serialOutput.appendChild(logEntry);
+        serialOutput.scrollTop = serialOutput.scrollHeight;
+
+        if (type === "success") {
+          playSound("capture");
+        } else if (type === "error") {
+          playSound("error");
+        }
+      }
+
+      function addLogSection(title, content, type = "info") {
+        const section = document.createElement("div");
+        section.className = `log-section log-${type}`;
+
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "log-section-title";
+
+        // Add timestamp to section title
+        const now = new Date();
+        titleDiv.textContent = `${title} [${now.toLocaleTimeString()}]`;
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "log-section-content";
+
+        // Create a single pre-formatted block for the entire content
+        const preBlock = document.createElement("pre");
+        preBlock.className = "signal-info-block";
+        preBlock.textContent = content;
+        contentDiv.appendChild(preBlock);
+
+        section.appendChild(titleDiv);
+        section.appendChild(contentDiv);
+        serialOutput.appendChild(section);
+        serialOutput.scrollTop = serialOutput.scrollHeight;
+      }
+
+      function clearSerialOutput() {
+        serialOutput.innerHTML = "";
+      }
+
+      async function readLoop() {
+        const textDecoder = new TextDecoderStream();
+        const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+        reader = textDecoder.readable.getReader();
+
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+              reader.releaseLock();
+              break;
+            }
+
+            const lines = value.split("\n");
+            let currentSection = null;
+            let currentSignal = null;
+            let signalBuffer = [];
+            let isCollectingSignal = false;
+
+            for (const line of lines) {
+              if (line.trim()) {
+                if (line.includes("[Stored Codes]")) {
+                  // Show any pending section before starting new one
+                  if (currentSection && signalBuffer.length > 0) {
+                    addLogSection(currentSection, signalBuffer.join("\n"));
+                    signalBuffer = [];
+                  }
+                  currentSection = "Stored Codes";
+                  isCollectingSignal = false;
+                  continue;
+                } else if (line.includes("Signal #")) {
+                  // Parse signal from list
+                  const signalMatch = line.match(/Signal #(\d+): (\d+)\|(\d+)/);
+                  if (signalMatch) {
+                    const [, index, code, protocol] = signalMatch;
+                    const signalId = `${code}-${protocol}`;
+                    capturedSignals.set(signalId, {
+                      name: `Signal ${index}`,
+                      code: code,
+                      protocol: protocol,
+                    });
+                  }
+                } else if (
+                  line.includes("[Signal Received]") ||
+                  line.includes("[Signal Transmitted]")
+                ) {
+                  // Show any pending section before starting new one
+                  if (currentSection && signalBuffer.length > 0) {
+                    addLogSection(currentSection, signalBuffer.join("\n"));
+                    signalBuffer = [];
+                  }
+                  currentSection = line.includes("Received")
+                    ? "Signal Received"
+                    : "Signal Transmitted";
+                  currentSignal = {
+                    name: "Signal " + (capturedSignals.size + 1),
+                  };
+                  isCollectingSignal = true;
+                  signalBuffer.push(line);
+
+                  // Play sound immediately when signal is detected
+                  if (line.includes("Received")) {
+                    playSound("signalReceived");
+                  }
+                  continue;
+                } else if (line.includes("----------------")) {
+                  // Show the complete section when we hit the separator
+                  if (currentSection && signalBuffer.length > 0) {
+                    addLogSection(currentSection, signalBuffer.join("\n"));
+                    if (
+                      currentSection === "Signal Received" &&
+                      currentSignal &&
+                      currentSignal.code &&
+                      currentSignal.protocol
+                    ) {
+                      playSound("signalReceived");
+                    }
+                    signalBuffer = [];
+                    isCollectingSignal = false;
+                  }
+                  continue;
+                } else if (currentSection) {
+                  if (isCollectingSignal) {
+                    // Add line to buffer for signal sections
+                    signalBuffer.push(line);
+
+                    if (line.includes("Code:")) {
+                      currentSignal.code = line.split("Code:")[1].trim();
+                    } else if (line.includes("Protocol:")) {
+                      currentSignal.protocol = line
+                        .split("Protocol:")[1]
+                        .trim();
+                    }
+                  } else {
+                    // For non-signal sections, add to buffer
+                    signalBuffer.push(line);
+                  }
+                } else {
+                  // Add individual lines to buffer
+                  signalBuffer.push(line);
+                }
+              }
+            }
+
+            // Show any remaining section content
+            if (currentSection && signalBuffer.length > 0) {
+              addLogSection(currentSection, signalBuffer.join("\n"));
+              if (
+                currentSection === "Signal Received" &&
+                currentSignal &&
+                currentSignal.code &&
+                currentSignal.protocol
+              ) {
+                const signalId = `${currentSignal.code}-${currentSignal.protocol}`;
+                capturedSignals.set(signalId, currentSignal);
+                playSound("signalReceived");
+                addLogEntry(
+                  `Captured signal: ${currentSignal.name}`,
+                  "success"
+                );
+                updateCapturedSignalsList();
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error reading from port:", error);
+          addLogEntry(`Error reading from port: ${error.message}`, "error");
+        }
+      }
+
+      async function writeToPort(text) {
+        if (!port || !port.writable) {
+          console.error("Port not open for writing");
+          addLogEntry("Port not open for writing", "error");
+          return;
+        }
+
+        const textEncoder = new TextEncoderStream();
+        const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+        writer = textEncoder.writable.getWriter();
+
+        try {
+          await writer.write(text + "\n");
+          await writer.close();
+          await writableStreamClosed;
+          addLogEntry(`Command sent: ${text}`, "info");
+        } catch (error) {
+          console.error("Error writing to port:", error);
+          addLogEntry(`Error writing to port: ${error.message}`, "error");
+          throw error;
+        }
+      }
+
+      connectButton.addEventListener("click", async () => {
+        try {
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+
+          statusDiv.textContent = "Connected";
+          document.getElementById("statusDot").classList.add("connected");
+          connectButton.disabled = true;
+          refreshButton.disabled = false;
+          saveAllButton.disabled = false;
+
+          playSound("connect");
+          addLogEntry("Successfully connected to ESP32", "success");
+          readLoop();
+        } catch (error) {
+          console.error("Connection failed:", error);
+          statusDiv.textContent = "Connection failed: " + error.message;
+          playSound("error");
+          addLogEntry(`Connection failed: ${error.message}`, "error");
+        }
+      });
+
+      refreshButton.addEventListener("click", async () => {
+        if (!port) {
+          addLogEntry("Not connected to ESP32", "error");
+          return;
+        }
+
+        try {
+          // Clear existing signals
+          capturedSignals.clear();
+
+          // Request signal list from ESP32
+          const writer = port.writable.getWriter();
+          await writer.write(new TextEncoder().encode("refresh data\n"));
+          writer.releaseLock();
+
+          addLogEntry("Requesting signal list from ESP32...", "info");
+
+          // Wait for ESP32 to respond
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // Update the display
+          updateCapturedSignalsList();
+        } catch (error) {
+          addLogEntry(`Error refreshing signals: ${error.message}`, "error");
+        }
+      });
+
+      saveAllButton.addEventListener("click", () => {
+        const allSignals = new Map([...capturedSignals, ...loadedSignals]);
+        console.log("Signals to save:", allSignals); // Debug log
+        // Convert Map to array for storage
+        const signalsArray = [...allSignals];
+        console.log("Signals array to save:", signalsArray); // Debug log
+        localStorage.setItem("savedSignals", JSON.stringify(signalsArray));
+        addLogEntry(
+          `Saved ${signalsArray.length} signals to storage`,
+          "success"
+        );
+      });
+
+      loadSignalsButton.addEventListener("click", () => {
+        const savedSignals = localStorage.getItem("savedSignals");
+        console.log("Raw saved signals from localStorage:", savedSignals); // Debug log
+        if (savedSignals) {
+          try {
+            const parsedSignals = JSON.parse(savedSignals);
+            console.log("Parsed signals:", parsedSignals); // Debug log
+            // Convert array back to Map
+            loadedSignals = new Map(parsedSignals);
+            console.log("Loaded signals Map:", loadedSignals); // Debug log
+            addLogEntry(
+              `Loaded ${loadedSignals.size} saved signals`,
+              "success"
+            );
+            updateCapturedSignalsList();
+          } catch (error) {
+            console.error("Error parsing saved signals:", error); // Debug log
+            addLogEntry(
+              "Error loading saved signals: " + error.message,
+              "error"
+            );
+          }
+        } else {
+          console.log("No saved signals found in localStorage"); // Debug log
+          addLogEntry("No saved signals found", "warning");
+        }
+      });
+
+      // Load saved signals from localStorage on page load
+      window.addEventListener("load", () => {
+        const savedSignals = localStorage.getItem("savedSignals");
+        console.log("Initial load - saved signals:", savedSignals); // Debug log
+        if (savedSignals) {
+          try {
+            const parsedSignals = JSON.parse(savedSignals);
+            console.log("Initial load - parsed signals:", parsedSignals); // Debug log
+            loadedSignals = new Map(parsedSignals);
+            console.log("Initial load - loaded signals Map:", loadedSignals); // Debug log
+            addLogEntry(
+              `Loaded ${loadedSignals.size} saved signals`,
+              "success"
+            );
+            updateCapturedSignalsList();
+          } catch (error) {
+            console.error("Error loading initial signals:", error); // Debug log
+            addLogEntry(
+              "Error loading saved signals: " + error.message,
+              "error"
+            );
+          }
+        }
+      });
+
+      clearSavedButton.addEventListener("click", async () => {
+        if (!port) {
+          addLogEntry("Not connected to ESP32", "error");
+          return;
+        }
+
+        try {
+          // Clear signals from ESP32
+          const writer = port.writable.getWriter();
+          await writer.write(new TextEncoder().encode("clear signals\n"));
+          writer.releaseLock();
+          addLogEntry("Clearing signals from ESP32...", "info");
+
+          // Wait for ESP32 to process the command
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Clear local storage
+          localStorage.removeItem("savedSignals");
+          capturedSignals.clear();
+          loadedSignals.clear();
+          updateCapturedSignalsList();
+          addLogEntry("All signals cleared successfully", "success");
+        } catch (error) {
+          addLogEntry(`Error clearing signals: ${error.message}`, "error");
+        }
+      });
+
+      function updateCapturedSignalsList() {
+        capturedCodesList.innerHTML = "";
+        const signalsCount = document.getElementById("capturedSignalsCount");
+
+        // Combine captured and loaded signals
+        const allSignals = new Map([...capturedSignals, ...loadedSignals]);
+        signalsCount.textContent = `${allSignals.size} signal${
+          allSignals.size !== 1 ? "s" : ""
+        }`;
+
+        if (allSignals.size === 0) {
+          capturedCodesList.innerHTML =
+            "<p>No signals found. Connect and click Refresh to capture new signals.</p>";
+          return;
+        }
+
+        // Sort signals by name
+        const sortedSignals = new Map(
+          [...allSignals.entries()].sort((a, b) => {
+            return a[1].name.localeCompare(b[1].name);
+          })
+        );
+
+        updateSignalsList(sortedSignals, capturedCodesList);
+      }
+
+      function updateSignalsList(signalsMap, container) {
+        signalsMap.forEach((signal, signalId) => {
+          const codeItem = document.createElement("div");
+          codeItem.className = "code-item";
+
+          const codeInfo = document.createElement("div");
+          codeInfo.className = "code-info";
+
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "signal-name";
+          nameSpan.textContent = signal.name;
+
+          const detailsSpan = document.createElement("span");
+          detailsSpan.className = "signal-details";
+          detailsSpan.textContent = `(Code: ${signal.code}, Protocol: ${signal.protocol})`;
+
+          codeInfo.appendChild(nameSpan);
+          codeInfo.appendChild(detailsSpan);
+
+          const codeActions = document.createElement("div");
+          codeActions.className = "code-actions";
+
+          const editButton = document.createElement("button");
+          editButton.className = "action-button";
+          editButton.textContent = "Edit";
+          editButton.onclick = () => editSignal(signalId, codeItem, signalsMap);
+
+          const replayButton = document.createElement("button");
+          replayButton.className = "action-button replay-button";
+          replayButton.textContent = "Replay";
+          replayButton.onclick = () => replaySignal(signal);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "action-button delete-button";
+          deleteButton.textContent = "Delete";
+          deleteButton.onclick = () => deleteSignal(signalId, signalsMap);
+
+          codeActions.appendChild(editButton);
+          codeActions.appendChild(replayButton);
+          codeActions.appendChild(deleteButton);
+
+          codeItem.appendChild(codeInfo);
+          codeItem.appendChild(codeActions);
+          container.appendChild(codeItem);
+        });
+      }
+
+      function editSignal(signalId, codeItem, signalsMap) {
+        const signal = signalsMap.get(signalId);
+        const originalName = signal.name;
+
+        // Create edit container
+        const editContainer = document.createElement("div");
+        editContainer.className = "edit-container";
+
+        // Create input field
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "edit-input";
+        nameInput.value = signal.name;
+        nameInput.placeholder = "Enter signal name";
+
+        // Create buttons container
+        const buttonsContainer = document.createElement("div");
+        buttonsContainer.className = "edit-buttons";
+
+        // Create save button
+        const saveButton = document.createElement("button");
+        saveButton.className = "action-button save-button";
+        saveButton.textContent = "Save";
+
+        // Create cancel button
+        const cancelButton = document.createElement("button");
+        cancelButton.className = "action-button";
+        cancelButton.textContent = "Cancel";
+
+        // Add buttons to container
+        buttonsContainer.appendChild(saveButton);
+        buttonsContainer.appendChild(cancelButton);
+
+        // Add input and buttons to edit container
+        editContainer.appendChild(nameInput);
+        editContainer.appendChild(buttonsContainer);
+
+        // Replace the signal name with the edit container
+        const nameElement = codeItem.querySelector(".signal-name");
+        nameElement.replaceWith(editContainer);
+
+        // Focus the input field
+        nameInput.focus();
+
+        // Save functionality
+        saveButton.onclick = () => {
+          const newName = nameInput.value.trim();
+          if (newName) {
+            signal.name = newName;
+            signalsMap.set(signalId, signal);
+
+            // Update localStorage if needed
+            if (
+              signalsMap === capturedSignals ||
+              signalsMap === loadedSignals
+            ) {
+              const allSignals = new Map([
+                ...capturedSignals,
+                ...loadedSignals,
+              ]);
+              localStorage.setItem(
+                "savedSignals",
+                JSON.stringify([...allSignals])
+              );
+            }
+
+            // Update the display
+            updateCapturedSignalsList();
+            addLogEntry(`Signal renamed to: ${newName}`, "success");
+          }
+        };
+
+        // Cancel functionality
+        cancelButton.onclick = () => {
+          // Restore original name
+          signal.name = originalName;
+          signalsMap.set(signalId, signal);
+
+          // Update the display
+          updateCapturedSignalsList();
+        };
+
+        // Handle Enter key for saving
+        nameInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            saveButton.click();
+          }
+        });
+
+        // Handle Escape key for canceling
+        nameInput.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            cancelButton.click();
+          }
+        });
+      }
+
+      async function replaySignal(signal) {
+        if (!port) {
+          playSound("error");
+          addLogEntry("Not connected to ESP32!", "error");
+          return;
+        }
+
+        if (!port.writable) {
+          playSound("error");
+          addLogEntry("Port is not writable. Please reconnect.", "error");
+          return;
+        }
+
+        try {
+          playSound("transmit");
+          // First, verify the signal data
+          const signalInfo = [
+            "Signal Details:",
+            `Signal Name: ${signal.name}`,
+            `Code: ${signal.code}`,
+            `Protocol: ${signal.protocol}`,
+            "",
+            "Verifying signal data...",
+            `Sending command: ${signal.code}|${signal.protocol}`,
+            "",
+            "Transmission in progress...",
+            "----------------",
+            "Troubleshooting Tips:",
+            "1. Check transmitter LED - should blink during transmission",
+            "2. Verify transmitter power - ensure good battery/connection",
+            "3. Check antenna connection - should be properly attached",
+            "4. Verify frequency - should match receiver frequency",
+            "5. Check distance - should be within range",
+            "6. Verify protocol - should match receiver protocol",
+          ].join("\n");
+
+          addLogSection("Signal Transmission", signalInfo, "info");
+
+          // Send the command
+          const writer = port.writable.getWriter();
+          await writer.write(
+            new TextEncoder().encode(`${signal.code}|${signal.protocol}\n`)
+          );
+          writer.releaseLock();
+
+          // Wait for transmission to complete
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          addLogEntry("Transmission completed", "success");
+        } catch (error) {
+          console.error("Error replaying signal:", error);
+          playSound("error");
+          const errorInfo = [
+            "Error Details:",
+            `Failed to replay signal: ${error.message}`,
+            "",
+            "Troubleshooting Steps:",
+            "1. Check ESP32 connection",
+            "2. Verify command format",
+            "3. Check for error messages in serial output",
+          ].join("\n");
+
+          addLogSection("Transmission Error", errorInfo, "error");
+        }
+      }
+
+      async function deleteSignal(signalId, signalsMap) {
+        if (confirm("Are you sure you want to delete this signal?")) {
+          const signal = signalsMap.get(signalId);
+
+          try {
+            // Send delete command to ESP32
+            if (port && port.writable) {
+              const command = `delete ${signal.code} ${signal.protocol}`;
+              addLogEntry(`Sending delete command: ${command}`, "info");
+              await writeToPort(command);
+
+              // Wait for the deletion to complete
+              await new Promise((resolve) => setTimeout(resolve, 500));
+
+              // Request updated signal list from ESP32
+              addLogEntry("Requesting updated signal list...", "info");
+              await writeToPort("list signals");
+
+              // Wait for ESP32 to respond with updated list
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              addLogEntry(
+                `Signal "${signal.name}" deleted from ESP32`,
+                "success"
+              );
+            } else {
+              addLogEntry("Cannot delete from ESP32: Not connected", "warning");
+            }
+          } catch (error) {
+            console.error("Error deleting signal from ESP32:", error);
+            addLogEntry(
+              `Error deleting signal from ESP32: ${error.message}`,
+              "error"
+            );
+          }
+
+          // Delete from local storage
+          signalsMap.delete(signalId);
+          if (signalsMap === capturedSignals) {
+            updateCapturedSignalsList();
+          }
+
+          // Update saved signals in localStorage
+          const allSignals = new Map([...capturedSignals, ...loadedSignals]);
+          localStorage.setItem("savedSignals", JSON.stringify([...allSignals]));
+        }
+      }
+    </script>
+  </body>
+</html>

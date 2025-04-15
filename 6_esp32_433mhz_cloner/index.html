@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ESP32 RF Cloner Web Interface</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        margin: 5px;
+      }
+      button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
+      #status {
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+      .connected {
+        background-color: #dff0d8;
+        color: #3c763d;
+      }
+      .disconnected {
+        background-color: #f2dede;
+        color: #a94442;
+      }
+      #codesList {
+        border: 1px solid #ddd;
+        padding: 10px;
+        min-height: 200px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .code-item {
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .code-item:last-child {
+        border-bottom: none;
+      }
+      .code-info {
+        flex-grow: 1;
+      }
+      .code-actions {
+        display: flex;
+        gap: 5px;
+      }
+      .signal-name {
+        font-weight: bold;
+        margin-right: 10px;
+      }
+      .signal-details {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .edit-input {
+        padding: 5px;
+        margin-right: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .action-button {
+        padding: 5px 10px;
+        font-size: 14px;
+      }
+      .save-button {
+        background-color: #2196f3;
+      }
+      .delete-button {
+        background-color: #f44336;
+      }
+      .replay-button {
+        background-color: #ff9800;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>ESP32 RF Cloner Web Interface</h1>
+
+      <div id="status" class="disconnected">Disconnected</div>
+
+      <div class="controls">
+        <button id="connectButton">Connect to ESP32</button>
+        <button id="refreshButton" disabled>Refresh Codes</button>
+        <button id="saveAllButton" disabled>Save All Signals</button>
+        <button id="loadSignalsButton">Load Saved Signals</button>
+      </div>
+
+      <div id="codesList">
+        <p>
+          No codes received yet. Connect to ESP32 and click Refresh to get
+          codes.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      let device = null;
+      let characteristic = null;
+      const serviceUuid = "0000ffe0-0000-1000-8000-00805f9b34fb";
+      const characteristicUuid = "0000ffe1-0000-1000-8000-00805f9b34fb";
+      let signals = new Map(); // Store signals with their names
+
+      const connectButton = document.getElementById("connectButton");
+      const refreshButton = document.getElementById("refreshButton");
+      const saveAllButton = document.getElementById("saveAllButton");
+      const loadSignalsButton = document.getElementById("loadSignalsButton");
+      const statusDiv = document.getElementById("status");
+      const codesList = document.getElementById("codesList");
+
+      // Load saved signals from localStorage on page load
+      window.addEventListener("load", () => {
+        const savedSignals = localStorage.getItem("savedSignals");
+        if (savedSignals) {
+          signals = new Map(JSON.parse(savedSignals));
+          updateSignalsList();
+        }
+      });
+
+      connectButton.addEventListener("click", async () => {
+        try {
+          device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: "ESP32" }],
+            optionalServices: [serviceUuid],
+          });
+
+          device.addEventListener("gattserverdisconnected", onDisconnected);
+
+          const server = await device.gatt.connect();
+          const service = await server.getPrimaryService(serviceUuid);
+          characteristic = await service.getCharacteristic(characteristicUuid);
+
+          statusDiv.textContent = "Connected";
+          statusDiv.className = "connected";
+          connectButton.disabled = true;
+          refreshButton.disabled = false;
+          saveAllButton.disabled = false;
+
+          await characteristic.startNotifications();
+          characteristic.addEventListener(
+            "characteristicvaluechanged",
+            handleNotifications
+          );
+        } catch (error) {
+          console.error("Connection failed:", error);
+          statusDiv.textContent = "Connection failed: " + error.message;
+        }
+      });
+
+      refreshButton.addEventListener("click", async () => {
+        if (characteristic) {
+          try {
+            const command = new TextEncoder().encode("refresh data\n");
+            await characteristic.writeValue(command);
+          } catch (error) {
+            console.error("Error sending refresh command:", error);
+          }
+        }
+      });
+
+      saveAllButton.addEventListener("click", () => {
+        localStorage.setItem("savedSignals", JSON.stringify([...signals]));
+        alert("All signals saved successfully!");
+      });
+
+      loadSignalsButton.addEventListener("click", () => {
+        const savedSignals = localStorage.getItem("savedSignals");
+        if (savedSignals) {
+          signals = new Map(JSON.parse(savedSignals));
+          updateSignalsList();
+          alert("Signals loaded successfully!");
+        } else {
+          alert("No saved signals found!");
+        }
+      });
+
+      function handleNotifications(event) {
+        const value = event.target.value;
+        const decoder = new TextDecoder();
+        const message = decoder.decode(value);
+
+        if (message.trim() === "empty memory") {
+          codesList.innerHTML = "<p>No codes stored in ESP32 memory.</p>";
+          return;
+        }
+
+        if (message.trim() === "Good connection") {
+          return;
+        }
+
+        const [code, protocol] = message.split("|");
+        if (code && protocol) {
+          const signalId = `${code}|${protocol}`;
+          if (!signals.has(signalId)) {
+            signals.set(signalId, {
+              name: `Signal ${signals.size + 1}`,
+              code: code,
+              protocol: protocol,
+            });
+            updateSignalsList();
+          }
+        }
+      }
+
+      function updateSignalsList() {
+        codesList.innerHTML = "";
+        if (signals.size === 0) {
+          codesList.innerHTML = "<p>No signals available.</p>";
+          return;
+        }
+
+        signals.forEach((signal, signalId) => {
+          const codeItem = document.createElement("div");
+          codeItem.className = "code-item";
+
+          const codeInfo = document.createElement("div");
+          codeInfo.className = "code-info";
+
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "signal-name";
+          nameSpan.textContent = signal.name;
+
+          const detailsSpan = document.createElement("span");
+          detailsSpan.className = "signal-details";
+          detailsSpan.textContent = `(Code: ${signal.code}, Protocol: ${signal.protocol})`;
+
+          codeInfo.appendChild(nameSpan);
+          codeInfo.appendChild(detailsSpan);
+
+          const codeActions = document.createElement("div");
+          codeActions.className = "code-actions";
+
+          const editButton = document.createElement("button");
+          editButton.className = "action-button";
+          editButton.textContent = "Edit";
+          editButton.onclick = () => editSignal(signalId, codeItem);
+
+          const replayButton = document.createElement("button");
+          replayButton.className = "action-button replay-button";
+          replayButton.textContent = "Replay";
+          replayButton.onclick = () => replaySignal(signal);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "action-button delete-button";
+          deleteButton.textContent = "Delete";
+          deleteButton.onclick = () => deleteSignal(signalId);
+
+          codeActions.appendChild(editButton);
+          codeActions.appendChild(replayButton);
+          codeActions.appendChild(deleteButton);
+
+          codeItem.appendChild(codeInfo);
+          codeItem.appendChild(codeActions);
+          codesList.appendChild(codeItem);
+        });
+      }
+
+      function editSignal(signalId, codeItem) {
+        const signal = signals.get(signalId);
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "edit-input";
+        nameInput.value = signal.name;
+
+        const saveButton = document.createElement("button");
+        saveButton.className = "action-button save-button";
+        saveButton.textContent = "Save";
+
+        const cancelButton = document.createElement("button");
+        cancelButton.className = "action-button";
+        cancelButton.textContent = "Cancel";
+
+        const editContainer = document.createElement("div");
+        editContainer.className = "code-actions";
+        editContainer.appendChild(nameInput);
+        editContainer.appendChild(saveButton);
+        editContainer.appendChild(cancelButton);
+
+        codeItem.querySelector(".code-actions").replaceWith(editContainer);
+
+        saveButton.onclick = () => {
+          signal.name = nameInput.value;
+          signals.set(signalId, signal);
+          updateSignalsList();
+        };
+
+        cancelButton.onclick = () => updateSignalsList();
+      }
+
+      async function replaySignal(signal) {
+        if (characteristic) {
+          try {
+            const command = new TextEncoder().encode(
+              `${signal.code}|${signal.protocol}\n`
+            );
+            await characteristic.writeValue(command);
+          } catch (error) {
+            console.error("Error replaying signal:", error);
+            alert("Failed to replay signal. Please check connection.");
+          }
+        } else {
+          alert("Not connected to ESP32!");
+        }
+      }
+
+      function deleteSignal(signalId) {
+        if (confirm("Are you sure you want to delete this signal?")) {
+          signals.delete(signalId);
+          updateSignalsList();
+        }
+      }
+
+      function onDisconnected() {
+        device = null;
+        characteristic = null;
+        statusDiv.textContent = "Disconnected";
+        statusDiv.className = "disconnected";
+        connectButton.disabled = false;
+        refreshButton.disabled = true;
+        saveAllButton.disabled = true;
+      }
+    </script>
+  </body>
+</html>
