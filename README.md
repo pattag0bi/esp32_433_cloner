@@ -1,6 +1,6 @@
 # ESP32 433MHz Signal Cloner
 
-A capstone project by Team Signal Masters at [Your College Name]
+A capstone project for capstone project at VIT Vellore (B.Tech CSE)
 
 ## Team Members
 
@@ -120,6 +120,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For questions or support, please contact:
 
-- Raunak Jha: [Your Email]
-- Sahith: [Sahith's Email]
-- Chaitainya: [Chaitainya's Email]
+- Raunak Jha: jharaunak@outlook.com
+- Sahith: Sahithvd@gmail.com
+- Chaitainya: chaitanya.sharma2021@vitstudent.ac.in
